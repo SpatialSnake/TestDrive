@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Leaflet Shapefile Upload</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 90vh;
+        }
+
+        .popup-content {
+            padding: 10px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .popup-content div {
+            margin-bottom: 5px;
+        }
+
+        .popup-content strong {
+            font-weight: bold;
+        }
+
+        .popup-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .popup-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .popup-table td {
+            padding: 5px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+
+<body>
+    <input type="file" id="shapefileInput" />
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/shpjs/dist/shp.js"></script>
+    <script>
+        // Create a Leaflet map
+        const map = L.map('map').setView([51.505, -0.09], 13);
+
+        // Define the basemap layers
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+        });
+
+        const satelliteLayer = L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+            attribution: 'Map data &copy; <a href="https://www.mapbox.com/">Mapbox</a>',
+            maxZoom: 18,
+            accessToken: 'YOUR_MAPBOX_ACCESS_TOKEN'
+        });
+
+        const terrainLayer = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png', {
+            attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://creativecommons.org/licenses/by-sa/3.0">CC BY SA</a>'
+        });
+
+        // Add the basemap layers to the Layer Control
+        const baseMaps = {
+            'Street Map': streetLayer,
+            'Satellite Imagery': satelliteLayer,
+            'Terrain Map': terrainLayer
+        };
+
+        // Add the Layer Control to the map
+        L.control.layers(baseMaps).addTo(map);
+
+        // Set the default basemap
+        streetLayer.addTo(map);
+        // Handle Shapefile upload
+        const shapefileInput = document.getElementById('shapefileInput');
+
+        shapefileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const contents = e.target.result;
+
+                shp(contents).then(function (geojson) {
+                    // Use the converted GeoJSON data
+                    displayOnLeaflet(geojson);
+                });
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+
+        function displayOnLeaflet(geojson) {
+            // Create a Leaflet GeoJSON layer with popup
+            const geojsonLayer = L.geoJSON(geojson, {
+                onEachFeature: function (feature, layer) {
+                    // Add a click event listener to each shape
+                    layer.on('click', function (event) {
+                        // Access the properties of the clicked shape and create the popup content
+                        const properties = feature.properties;
+                        let popupContent = '<table class="popup-table">';
+                        for (const key in properties) {
+                            if (properties.hasOwnProperty(key)) {
+                                popupContent += `<tr><td><strong>${key}:</strong></td><td>${properties[key]}</td></tr>`;
+                            }
+                        }
+                        popupContent += '</table>';
+
+                        // Create the popup and bind it to the clicked shape
+                        layer.bindPopup(popupContent).openPopup();
+                    });
+                }
+            });
+
+            // Add the GeoJSON layer to the map
+            geojsonLayer.addTo(map);
+
+            // Fit the map bounds to the GeoJSON layer
+            map.fitBounds(geojsonLayer.getBounds());
+        }
+
+
+    </script>
+</body>
+
+</html>
